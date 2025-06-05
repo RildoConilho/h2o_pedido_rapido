@@ -1,0 +1,43 @@
+{
+    "name": "H2O Pedido Rápido",
+    "short_name": "H2O Água",
+    "description": "Peça sua água da Distribuidora H2O de forma rápida.",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f4f4f4",
+    "theme_color": "#00BFFF",
+    "icons": [
+        {
+            "src": "icones/android-launchericon-48-48.png",
+            "sizes": "48x48",
+            "type": "image/png"
+        },
+        {
+            "src": "icones/android-launchericon-72-72.png",
+            "sizes": "72x72",
+            "type": "image/png"
+        },
+        {
+            "src": "icones/android-launchericon-96-96.png",
+            "sizes": "96x96",
+            "type": "image/png"
+        },
+        {
+            "src": "icones/android-launchericon-144-144.png",
+            "sizes": "144x144",
+            "type": "image/png"
+        },
+        {
+            "src": "icones/android-launchericon-192-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "icones/android-launchericon-512-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

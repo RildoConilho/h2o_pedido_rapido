@@ -1,0 +1,16 @@
+# netlify.toml
+
+# Configurações de Build (Construção)
+[build]
+  # A pasta que o Netlify deve publicar como o teu site.
+  # Se o teu ficheiro index.html, sw.js, manifest.json e a pasta icones/
+  # estão todos na raiz do teu projeto, então "." está correto.
+  # Se eles estiverem dentro de uma subpasta (ex: "public" ou "dist"),
+  # deves alterar esta linha para "public" ou "dist".
+  publish = "."
+
+# Configurações das Netlify Functions
+[functions]
+  # O diretório onde as tuas funções serverless estão localizadas,
+  # relativo à raiz do teu projeto.
+  directory = "netlify/functions"
