@@ -1,7 +1,7 @@
 // sw.js
 
-// O NOME DO CACHE FOI ATUALIZADO AQUI PARA FORÇAR A ATUALIZAÇÃO EM TODOS OS DISPOSITIVOS
-const CACHE_NAME = 'h2o-pedido-rapido-cache-v12'; 
+// O NOME DO CACHE FOI ATUALIZADO PARA v14 PARA A VERSÃO FINAL E COMPLETA.
+const CACHE_NAME = 'h2o-pedido-rapido-cache-v14'; 
 const urlsToCache = [
     '.', // Representa a raiz, geralmente o index.html
     'index.html',
@@ -60,6 +60,7 @@ self.addEventListener('activate', event => {
             );
         }).then(() => {
             console.log(`[SW ${CACHE_NAME}] Service worker ativado e caches antigos limpos.`);
+            checkAndDisplayScheduledNotifications();
             return self.clients.claim(); 
         })
     );
@@ -70,6 +71,7 @@ try {
     importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js');
     importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js');
 
+    // CONFIGURAÇÃO NOVA E CORRETA DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyCMnkyno22KbzIj6prAXtfDW2iTFPl-n84",
       authDomain: "h2o-pedido-rapido-pwa.firebaseapp.com",
@@ -93,13 +95,123 @@ try {
         icon: payload.notification?.icon || '/icones/android-launchericon-192-192.png',
         data: {
             url: payload.data?.url || self.registration.scope 
-        }
+        },
+        actions: [ 
+            { action: 'abrir_app', title: '💧 Pedir Água Agora' }
+        ]
       };
       return self.registration.showNotification(notificationTitle, notificationOptions);
     });
+
+    self.addEventListener('notificationclick', event => {
+        console.log(`[SW ${CACHE_NAME}] Clique na notificação recebido: `, event);
+        event.notification.close(); 
+        const urlParaAbrir = event.notification.data?.url || self.registration.scope;
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+                for (let i = 0; i < windowClients.length; i++) {
+                    const client = windowClients[i];
+                    if (client.url === urlParaAbrir && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                if (clients.openWindow) {
+                    return clients.openWindow(urlParaAbrir);
+                }
+            })
+        );
+    });
+    console.log(`[SW ${CACHE_NAME}] Manipuladores de mensagem e clique configurados.`);
 
 } catch (e) {
     console.error(`[SW ${CACHE_NAME}] Erro ao inicializar Firebase:`, e);
 }
 
-// (O restante do seu código para notificações locais continua aqui)
+
+// --- LÓGICA DE AGENDAMENTO DE NOTIFICAÇÕES LOCAIS (CLIENT-SIDE) ---
+const DB_NAME = 'h2o-app-db';
+const DB_VERSION = 1;
+const STORE_NAME = 'scheduled-notifications';
+
+function openDb() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = event => {
+            const db = event.target.result;
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = event => resolve(event.target.result);
+        request.onerror = event => reject(event.target.error);
+    });
+}
+
+async function addScheduledNotification(notificationData) {
+    const db = await openDb();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    return new Promise((resolve, reject) => {
+        const request = store.add(notificationData);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getScheduledNotifications() {
+    const db = await openDb();
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    return new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function deleteScheduledNotification(id) {
+    const db = await openDb();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    return new Promise((resolve, reject) => {
+        const request = store.delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+self.addEventListener('message', async event => {
+    if (event.data && event.data.type === 'SCHEDULE_REMINDER') {
+        const { delayInSeconds, title, body, tag, url } = event.data;
+        const scheduledTime = Date.now() + (delayInSeconds * 1000);
+        const notificationData = { title, body, icon: '/icones/android-launchericon-192-192.png', tag, data: { url: url || self.registration.scope }, scheduledTime };
+        await addScheduledNotification(notificationData);
+        if ('periodicSync' in self.registration) {
+            try {
+                await self.registration.periodicSync.register('check-water-reminder', { minInterval: 24 * 60 * 60 * 1000 });
+            } catch (e) { console.warn('[SW] Periodic Background Sync não pôde ser registrado:', e); }
+        }
+    } else if (event.data && event.data.type === 'CANCEL_ALL_REMINDERS') {
+        const db = await openDb();
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        transaction.objectStore(STORE_NAME).clear();
+        if ('periodicSync' in self.registration) {
+             try { await self.registration.periodicSync.unregister('check-water-reminder'); } catch (e) { console.warn('[SW] Erro ao desregistrar Periodic Background Sync:', e); }
+        }
+    }
+});
+
+async function checkAndDisplayScheduledNotifications() {
+    const notifications = await getScheduledNotifications();
+    const now = Date.now();
+    for (const notif of notifications) {
+        if (now >= notif.scheduledTime) {
+            await self.registration.showNotification(notif.title, { body: notif.body, icon: notif.icon, tag: notif.tag, data: notif.data, actions: [{ action: 'abrir_app', title: '💧 Pedir Água Agora' }] });
+            await deleteScheduledNotification(notif.id);
+        }
+    }
+}
+
+self.addEventListener('periodicsync', event => {
+    if (event.tag === 'check-water-reminder') {
+        event.waitUntil(checkAndDisplayScheduledNotifications());
+    }
+});
