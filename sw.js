@@ -1,21 +1,11 @@
 // sw.js
 
-// O NOME DO CACHE FOI ATUALIZADO PARA v14 PARA A VERSÃO FINAL E COMPLETA.
-const CACHE_NAME = 'h2o-pedido-rapido-cache-v14'; 
+// O NOME DO CACHE FOI ATUALIZADO PARA v15 E A LISTA DE ARQUIVOS SIMPLIFICADA
+const CACHE_NAME = 'h2o-pedido-rapido-cache-v15'; 
 const urlsToCache = [
-    '.', // Representa a raiz, geralmente o index.html
+    '/', // Representa a raiz do site
     'index.html',
-    'manifest.json',
-    // Ícones
-    'icones/android-launchericon-48-48.png',
-    'icones/android-launchericon-72-72.png',
-    'icones/android-launchericon-96-96.png',
-    'icones/android-launchericon-144-144.png',
-    'icones/android-launchericon-192-192.png',
-    'icones/android-launchericon-512-512.png',
-    'icones/apple-icon-180.png',
-    // Imagem do logo
-    'https://st4.depositphotos.com/20523700/25934/i/380/depositphotos_259345310-stock-photo-illustration-h2o-icon.jpg' 
+    'manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -23,11 +13,11 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log(`[SW ${CACHE_NAME}] Cache aberto, cacheando URLs iniciais.`);
+                console.log(`[SW ${CACHE_NAME}] Cache aberto, cacheando URLs essenciais.`);
                 return cache.addAll(urlsToCache);
             })
             .then(() => {
-                console.log(`[SW ${CACHE_NAME}] Todos os arquivos foram cacheados com sucesso.`);
+                console.log(`[SW ${CACHE_NAME}] Arquivos essenciais cacheados com sucesso.`);
                 self.skipWaiting();
             })
             .catch(error => {
@@ -71,7 +61,6 @@ try {
     importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js');
     importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js');
 
-    // CONFIGURAÇÃO NOVA E CORRETA DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyCMnkyno22KbzIj6prAXtfDW2iTFPl-n84",
       authDomain: "h2o-pedido-rapido-pwa.firebaseapp.com",
@@ -88,23 +77,17 @@ try {
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
-      console.log(`[SW ${CACHE_NAME}] Mensagem de fundo recebida: `, payload);
       const notificationTitle = payload.notification?.title || "H2O Pedido Rápido";
       const notificationOptions = {
         body: payload.notification?.body || "Você tem uma nova mensagem.",
-        icon: payload.notification?.icon || '/icones/android-launchericon-192-192.png',
-        data: {
-            url: payload.data?.url || self.registration.scope 
-        },
-        actions: [ 
-            { action: 'abrir_app', title: '💧 Pedir Água Agora' }
-        ]
+        icon: '/icones/android-launchericon-192-192.png',
+        data: { url: payload.data?.url || self.registration.scope },
+        actions: [ { action: 'abrir_app', title: '💧 Pedir Água Agora' } ]
       };
       return self.registration.showNotification(notificationTitle, notificationOptions);
     });
 
     self.addEventListener('notificationclick', event => {
-        console.log(`[SW ${CACHE_NAME}] Clique na notificação recebido: `, event);
         event.notification.close(); 
         const urlParaAbrir = event.notification.data?.url || self.registration.scope;
         event.waitUntil(
@@ -121,7 +104,6 @@ try {
             })
         );
     });
-    console.log(`[SW ${CACHE_NAME}] Manipuladores de mensagem e clique configurados.`);
 
 } catch (e) {
     console.error(`[SW ${CACHE_NAME}] Erro ao inicializar Firebase:`, e);
@@ -185,16 +167,16 @@ self.addEventListener('message', async event => {
         const notificationData = { title, body, icon: '/icones/android-launchericon-192-192.png', tag, data: { url: url || self.registration.scope }, scheduledTime };
         await addScheduledNotification(notificationData);
         if ('periodicSync' in self.registration) {
-            try {
-                await self.registration.periodicSync.register('check-water-reminder', { minInterval: 24 * 60 * 60 * 1000 });
-            } catch (e) { console.warn('[SW] Periodic Background Sync não pôde ser registrado:', e); }
+            try { await self.registration.periodicSync.register('check-water-reminder', { minInterval: 24 * 60 * 60 * 1000 }); }
+            catch (e) { console.warn('[SW] Periodic Background Sync não pôde ser registrado:', e); }
         }
     } else if (event.data && event.data.type === 'CANCEL_ALL_REMINDERS') {
         const db = await openDb();
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         transaction.objectStore(STORE_NAME).clear();
         if ('periodicSync' in self.registration) {
-             try { await self.registration.periodicSync.unregister('check-water-reminder'); } catch (e) { console.warn('[SW] Erro ao desregistrar Periodic Background Sync:', e); }
+             try { await self.registration.periodicSync.unregister('check-water-reminder'); }
+             catch (e) { console.warn('[SW] Erro ao desregistrar Periodic Background Sync:', e); }
         }
     }
 });
